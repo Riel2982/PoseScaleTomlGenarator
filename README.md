@@ -31,7 +31,7 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
 2. Generatorの実行ファイル(.exe)アイコンに"gm_module_tbl.farc"をドラッグ＆ドロップするとPoseとScaleのTomlファイルが生成されます。
     - 通常はFarcファイルと同じ場所にTomlファイルが生成されますが、Editorで'親ディレクトリに保存'をONにするとFarcファイルの一つ上の階層に出力されます。
     - '送る'登録をすれば"Databese Converter"や"Farc Pack"と同じようにFarcファイルを右クリック→送るでも実行できます。〈おすすめ〉
-    - 生成先に同名ファイルが存在する時は、既存ファイルをタイムスタンプ付きにリネームして出力（バックアップ）しますが、Editorで'既存ファイルを上書き'をONにするとバックアップを無効化します。
+    - 生成先に同名ファイルが存在する時は、既存ファイルをタイムスタンプ付きにリネーム（バックアップ）してから出力しますが、Editorで'既存ファイルを上書き'をONにするとバックアップを無効化します。
     - Editorで'プロファイルを有効化'をONにすると読み込んだモジュールデータと条件が一致するプロファイルを自動で判別し、Tomlファイルを出力します。（複数の設定を使い分けたいときなどに）
         - プロファイルが無効中に使用される設定ファイルは"PoseScaleData.ini"です。
 
@@ -47,7 +47,7 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
         - 'ファイルを編集'ボタンをクリックすると、該当するPoseScale設定ファイル編集画面に移動します。（移動前にTomlプロファイルを更新するのを忘れないように注意してください）
 - Poseファイル名: 生成されるPose用のTomlファイル名を設定する欄。
     - "gm_module_pose_tbl.toml"か、modの"config.toml"で指定するカスタムファイル名を入力してください。
-        - カスタムファイル名とは``` module_poses = 'poses.toml' ```の'poses.toml'のこと。
+        - カスタムファイル名とは``` module_poses = 'poses.toml' ```の'poses.toml'の部分のこと。
 
 
 ### Pose Scale Data
@@ -57,13 +57,13 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
 - モジュール除外: モジュール名に指定した単語が含まれる場合、このSettingデータの使用をスキップする条件指定欄。
     - プロファイルと同じく以下略。
 - Pose ID: 使用するポーズを指定する欄。空欄の場合はPose指定処理をスキップします。
-    - Key Mapに登録しているポーズに関しては、プルダウンから選択可能です。（もちろんPoseIDを直接入力するのも可）
+    - PoseID Mapに登録しているポーズに関しては、プルダウンから選択可能です。（もちろんPoseIDを直接入力するのも可）
 - Scale: 使用するスケール値を設定する欄。空欄の場合はScale指定処理をスキップします。
     - 現在は数値の直接入力のみ対応していますが、要望があればPoseID Mapのような機能を追加するかも……
 
 
 #### キャラ枠指定のみでPoseScaleを出力したい場合
-- モジュール一致指定欄を空欄にして登録すると、どのSetttingデータにも該当しなかったモジュールの中からキャラ枠が一致するモジュールがあればモジュール名限定条件はなく出力できます。
+- モジュール一致指定欄を空欄にして登録すると、どのSetttingデータにも該当しなかったモジュールの中からキャラ枠が一致するモジュールがあればモジュール名指定条件はなくとも出力できます。
     - モジュール除外と併用可能です。
 
 ### Pose ID Map
