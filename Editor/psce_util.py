@@ -294,15 +294,15 @@ class CustomMessagebox:
 def normalize_comma_separated_string(s):
     """
     カンマ区切り文字列を正規化する
-    - 全角カンマを半角に変換
+    - 全角カンマ・読点を半角に変換
     - 前後の空白を削除
     - 空の要素を削除
     """
     if not s:
         return ""
     
-    # 全角カンマを半角に
-    s = s.replace('，', ',')
+    # 全角カンマと読点を半角に
+    s = s.replace('，', ',').replace('、', ',')
     
     # 分割して空白削除
     parts = [p.strip() for p in s.split(',')]
