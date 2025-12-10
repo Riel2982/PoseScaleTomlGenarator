@@ -4,7 +4,7 @@ import configparser
 import os
 from psce_util import CustomMessagebox, normalize_comma_separated_string
 
-# ポーズデータタブUIクラス
+# PoseScaleDataタブUIクラス
 class PoseDataTab:
     # タブの作成
     def __init__(self, notebook, app):
@@ -129,7 +129,7 @@ class PoseDataTab:
         # 更新（保存）
         ttk.Button(frame_right, text=self.trans.get("update_save_file"), command=self.save_pose_data).pack(pady=10)
 
-        self.refresh_pose_files()  # This will call refresh_pose_data_list with select_first=True
+        self.refresh_pose_files()  # This will call refresh_pose_data_list with select_first=True（最初のファイルを選択）
 
     # Pose IDコンボボックス更新 
     def refresh_pose_id_combo(self, event=None):
@@ -387,11 +387,11 @@ class PoseDataTab:
         # データを設定（カンマ正規化を適用）
         display_name = self.app.pd_chara_var.get()
         code = self.chara_map.get(display_name, display_name) # Fallback to display name if not found（表示名が見つからない場合は表示名を使用する）
-        self.app.current_pose_config.set(new_section, 'Chara', code)
-        self.app.current_pose_config.set(new_section, 'ModuleNameContains', normalize_comma_separated_string(self.app.pd_match_var.get()))
-        self.app.current_pose_config.set(new_section, 'ModuleExclude', normalize_comma_separated_string(self.app.pd_exclude_var.get()))
+        # スナップショットロジックの後に移動
+        match_val = normalize_comma_separated_string(self.app.pd_match_var.get())
+        exclude_val = normalize_comma_separated_string(self.app.pd_exclude_var.get())
         
-        # Validation for PoseID and Scale（PoseIDとScaleの検証）
+        # PoseIDとScaleの検証
         raw_val = self.app.pd_pose_id_var.get()
         if '(' in raw_val and raw_val.endswith(')'):        # ポーズIDが括弧で囲まれている場合
             pose_id = raw_val.split('(')[-1].strip(')')     # ポーズIDを括弧で囲まれた部分に変換
@@ -446,7 +446,7 @@ class PoseDataTab:
         if self.app.selected_pose_data_section != new_section:
             has_changes = True
         else:
-            # Check values (normalize config values for comparison)
+            # 値の比較用にconfig値を正規化
             current_chara = self.app.current_pose_config.get(new_section, 'Chara', fallback='')
             current_match = normalize_comma_separated_string(self.app.current_pose_config.get(new_section, 'ModuleNameContains', fallback=''))
             current_exclude = normalize_comma_separated_string(self.app.current_pose_config.get(new_section, 'ModuleExclude', fallback=''))
@@ -459,13 +459,23 @@ class PoseDataTab:
                 current_pose_id != pose_id or
                 current_scale != scale_val):
                 has_changes = True
+            
+            # 生の値が正規化された値と異なるかどうかを確認する（UI更新をトリガーするため）
+            if not has_changes:
+                if (self.app.pd_match_var.get() != normalize_comma_separated_string(self.app.pd_match_var.get()) or
+                    self.app.pd_exclude_var.get() != normalize_comma_separated_string(self.app.pd_exclude_var.get())):
+                    has_changes = True
+
                 
         if not has_changes:
             return
         
-        # Take snapshot only if changes detected
+        # 変更が検出された場合のみスナップショットを取る
         self.app.history.snapshot('data')
 
+        self.app.current_pose_config.set(new_section, 'Chara', code)
+        self.app.current_pose_config.set(new_section, 'ModuleNameContains', match_val)
+        self.app.current_pose_config.set(new_section, 'ModuleExclude', exclude_val)
         self.app.current_pose_config.set(new_section, 'PoseID', pose_id) # ポーズIDを設定
         self.app.current_pose_config.set(new_section, 'Scale', scale_val) # Scaleを設定
         
@@ -473,9 +483,8 @@ class PoseDataTab:
         self.refresh_pose_data_list() # ポーズデータリストを更新
         self.app.select_listbox_item(self.app.pose_data_listbox, new_section) # 新しいセクションを選択
         
-        # Update UI with normalized values AFTER re-selection to show corrections immediately
-        # Re-selection triggers on_pose_data_select which loads from config, so we need to update UI after that
-        # Set programmatic_change flag to prevent undo stack pollution
+        # 再選択後にUIを更新して訂正を表示（再選択はon_pose_data_selectをトリガーし、configから読み込むので、その後にUIを更新する必要がある）
+        # プログラム変更フラグを設定して逆元スタック汚染を防ぐ
         
         # カンマ区切りフィールドを正規化してUIに反映
         if hasattr(self.app.pd_match_entry, 'programmatic_change'):
@@ -511,7 +520,7 @@ class PoseDataTab:
 
     # 新しいポーズファイルを作成
     def create_new_pose_file(self):
-        # Custom dialog to force file creation in PoseScaleData folder（PoseScaleDataフォルダにファイルを作成するためのカスタムダイアログ）
+        # PoseScaleDataフォルダにファイルを作成するためのカスタムダイアログ）
         filename = simpledialog.askstring(self.trans.get("create_new_file"), self.trans.get("enter_filename"))
         if not filename: return
         
@@ -527,11 +536,11 @@ class PoseDataTab:
             return
             
         try:
-            # Snapshot before creating new file
+            # 新しいファイルを作成する前にスナップショットを取る
             self.app.history.snapshot('data')
             
             with open(filepath, 'w', encoding='utf-8-sig') as f:
-                f.write("") # Create empty file（空のファイルを作成）
+                f.write("") # 空のファイルを作成
             self.refresh_pose_files()
             self.app.pose_file_combo.set(filename)
             self.load_pose_data_file()
@@ -565,7 +574,7 @@ class PoseDataTab:
             return
             
         try:
-            # Snapshot before duplicating file
+            # 新しいファイルを作成する前にスナップショットを取る
             self.app.history.snapshot('data')
             
             import shutil
@@ -585,8 +594,8 @@ class PoseDataTab:
         old_filename = os.path.basename(self.app.current_pose_file_path)
         base_name, ext = os.path.splitext(old_filename)
         
-        # Ensure initialvalue is passed. （初期値を渡す）
-        # Note: simpledialog.askstring supports initialvalue in standard tkinter.（simpledialog.askstringは標準のtkinterで初期値をサポート）
+        # 初期値を渡す
+        # simpledialog.askstringは標準のtkinterで初期値をサポート
         new_filename = simpledialog.askstring(self.trans.get("rename_file"), self.trans.get("enter_filename"), initialvalue=base_name)
         if not new_filename: return
         
@@ -629,6 +638,6 @@ class PoseDataTab:
                 self.app.current_pose_file_path = None
                 self.app.current_pose_config = None
                 self.refresh_pose_files()
-                # refresh_pose_files handles clearing fields if no files left（ファイルが残っていない場合、フィールドをクリアする）
+                # ファイルが残っていない場合、フィールドをクリアする
             except Exception as e:
                 CustomMessagebox.show_error(self.trans.get("error"), f"Failed to delete file: {e}", self.app.root)
