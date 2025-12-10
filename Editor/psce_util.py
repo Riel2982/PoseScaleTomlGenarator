@@ -309,3 +309,13 @@ def normalize_comma_separated_string(s):
     
     # 空の要素を削除して再結合（カンマ+スペース形式）
     return ", ".join([p for p in parts if p])
+
+def normalize_text(text):
+    """
+    テキストを正規化する
+    - 前後の空白（半角・全角）を削除
+    """
+    if not text:
+        return ""
+    # Pythonのstrip()は全角スペースも削除する
+    return text.strip()
