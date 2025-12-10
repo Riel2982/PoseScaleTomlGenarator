@@ -222,13 +222,14 @@ class KeyMapTab:
         if changed:
             self.app.key_manager.save_key_map()
             self.app.key_manager.apply_shortcuts(self.app.root)
-            messagebox.showinfo(self.trans.get("success"), self.trans.get("keymap_saved"))
+            # messagebox.showinfo(self.trans.get("success"), self.trans.get("keymap_saved"))
+            self.app.show_status_message(self.trans.get("keymap_saved"), "success")
         else:
-            messagebox.showinfo(self.trans.get("success"), self.trans.get("keymap_no_changes"))
+            # messagebox.showinfo(self.trans.get("success"), self.trans.get("keymap_no_changes"))
+            self.app.show_status_message(self.trans.get("keymap_no_changes"), "warning")
 
     def reset_key_map(self):
-        # Assuming CustomMessagebox is defined elsewhere or will be added.
-        # For now, using messagebox.askyesno as a placeholder if CustomMessagebox is not available.
+        # CustomMessageboxを使用する場合
         # if CustomMessagebox.ask_yes_no(self.trans.get("confirm"), self.trans.get("reset_confirm"), self.app.root):
         if messagebox.askyesno(self.trans.get("confirm"), self.trans.get("reset_confirm")):
             self.app.history.snapshot('key')
@@ -242,7 +243,8 @@ class KeyMapTab:
             for action, var in self.entries.items():
                 var.set("")
             
-            messagebox.showinfo(self.trans.get("success"), "KeyMap settings reset.")
+            # messagebox.showinfo(self.trans.get("success"), "KeyMap settings reset.")
+            self.app.show_status_message(self.trans.get("keymap_reset"), "info")
     
     def refresh_key_list(self):
         """KeyMap設定をリロードしてGUIを更新"""

@@ -120,6 +120,11 @@ class ProfileTab:
         
         # TomlProfileの保存
         self.app.utils.save_config(self.app.profile_config, self.app.utils.profile_config_path)
+
+        # 新規追加完了の案内
+        message = self.trans.get("msg_added_profile").format(suffix)
+        self.app.show_status_message(message, "info")
+
         self.refresh_profile_list()
         self.app.select_listbox_item(self.app.profile_listbox, section)
 
@@ -149,10 +154,10 @@ class ProfileTab:
             except ValueError:
                 pass # Previous selection not found
 
-        # Select first item only on initial load if restoration failed
+        # 復元に失敗した場合、最初の項目を選択
         if select_first and not restored and self.app.profile_listbox.size() > 0:
             self.app.profile_listbox.selection_set(0)
-            # Directly call handler to ensure UI is updated
+            # UIを更新
             self.on_profile_select(None)
 
     # ConfigFileコンボボックスの更新
@@ -194,13 +199,22 @@ class ProfileTab:
         while self.app.profile_config.has_section(f"TomlProfile_{suffix}"):
             suffix = f"{base_suffix}_{counter}"
             counter += 1
-            
+
+        # メッセージ表示用に元のサフィックスを取得しておく
+        source_suffix = old_section.replace("TomlProfile_", "", 1)
+
         new_section = f"TomlProfile_{suffix}"
         self.app.profile_config.add_section(new_section)
         for k, v in self.app.profile_config.items(old_section):
             self.app.profile_config.set(new_section, k, v)
-            
+
+        # 複製を保存    
         self.app.utils.save_config(self.app.profile_config, self.app.utils.profile_config_path)
+
+        # 複製完了案内
+        message = self.trans.get("msg_duplicated_profile").format(source_suffix)
+        self.app.show_status_message(message, "info")
+
         self.refresh_profile_list()
         self.app.select_listbox_item(self.app.profile_listbox, new_section)
 
@@ -245,11 +259,18 @@ class ProfileTab:
     def delete_profile(self):
         selection = self.app.profile_listbox.curselection()
         if not selection: return
-        section = self.app.profile_listbox.get(selection[0])
-        
+        section = self.app.profile_listbox.get(selection[0])    # セクション名取得
+
+        # Suffixを取得
+        suffix = section.replace("TomlProfile_", "")    # 取得したセクション名から"TomlProfile_"を取り除いて取得
+
         # No confirmation as requested（確認なしで削除）
         self.app.history.snapshot('profile')
-        
+
+        # 削除完了案内
+        message = self.trans.get("msg_deleted_profile").format(suffix)
+        self.app.show_status_message(message, "info")
+
         idx = selection[0]
         self.app.profile_config.remove_section(section)
         self.app.utils.save_config(self.app.profile_config, self.app.utils.profile_config_path)
@@ -302,8 +323,7 @@ class ProfileTab:
         if not self.app.profile_config.has_section(new_section):
             self.app.profile_config.add_section(new_section)
         
-        # Get values from UI（UI から値を取得してカンマ正規化を適用）
-        # normalize_comma_separated_string already does stripping/normalization
+        # UI から値を取得してカンマ正規化を適用）
         match_val = normalize_comma_separated_string(self.app.prof_match_var.get())
         exclude_val = normalize_comma_separated_string(self.app.prof_exclude_var.get())
         config_file = self.app.prof_config_var.get()
@@ -334,6 +354,7 @@ class ProfileTab:
             has_changes = True
             
         if not has_changes:
+            self.app.show_status_message(self.trans.get("msg_no_changes"), "warning")    # 変更事項がない場合の案内
             return
         
         # 変更が検出された場合のみスナップショットを取る
@@ -347,10 +368,16 @@ class ProfileTab:
         
         # Save config（configを保存する）
         self.app.utils.save_config(self.app.profile_config, self.app.utils.profile_config_path)
+    
+        # 保存完了の案内
+        message = self.trans.get("msg_saved_profile").format(suffix)
+        self.app.show_status_message(message, "success")
+        
+        # 補正後の画面に更新
         self.refresh_profile_list()
         self.app.select_listbox_item(self.app.profile_listbox, new_section)
 
-    # Jump to pose editor（ポーズエディタに移動する）
+    # Jump to pose editor（PoseScaleエディタに移動する）
     def jump_to_pose_editor(self):
         config_base = self.app.prof_config_var.get()
         if not config_base: return
@@ -369,7 +396,7 @@ class ProfileTab:
             else:
                 return
 
-        self.app.notebook.select(2) # Select pose editor（ポーズエディタを選択する）
-        self.app.refresh_pose_files() # Refresh pose files（ポーズファイルを更新する）
-        self.app.pose_file_combo.set(filename) # Set pose file（ポーズファイルを設定する）
-        self.app.load_pose_data_file() # Load pose data file（ポーズデータファイルを読み込む）
+        self.app.notebook.select(2) # Select pose editor（PoseScaleエディタを選択する）
+        self.app.refresh_pose_files() # Refresh pose files（PoseScaleファイルを更新する）
+        self.app.pose_file_combo.set(filename) # Set pose file（PoseScaleファイルを設定する）
+        self.app.load_pose_data_file() # Load pose data file（PoseScaleデータファイルを読み込む）

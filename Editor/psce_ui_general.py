@@ -132,7 +132,44 @@ class GeneralSettingsTab:
 
     # 保存
     def save_general_settings(self):
+        # UIから値を取得して正規化
+        path_ui = normalize_text(self.app.farc_path_var.get())
+        def_pose_name_ui = normalize_text(self.app.def_pose_name_var.get())
+        
+        # Check for changes (変更があるか確認)
+        has_changes = False
+
+        # FarcPackPath
+        current_path = self.app.main_config.get('FarcPack', 'FarcPackPath', fallback='')
+        if path_ui != current_path: has_changes = True
+        # GeneralSettings
+        if str(self.app.save_parent_var.get()) != self.app.main_config.get('GeneralSettings', 'SaveInParentDirectory', fallback='False'): has_changes = True
+        
+        # DefaultPoseFileName (バリデーションは変更がある場合または保存時に実施されるが、ここでは単純比較)
+        current_def_pose = self.app.main_config.get('GeneralSettings', 'DefaultPoseFileName', fallback='gm_module_pose_tbl')
+        if def_pose_name_ui != current_def_pose: has_changes = True
+        if str(self.app.use_module_name_contains_var.get()) != self.app.main_config.get('GeneralSettings', 'UseModuleNameContains', fallback='False'): has_changes = True
+        if str(self.app.overwrite_existing_var.get()) != self.app.main_config.get('GeneralSettings', 'OverwriteExistingFiles', fallback='False'): has_changes = True
+        
+        # Language
+        lang_disp = self.app.lang_var.get()
+        lang_code = 'en' if lang_disp == 'English' else 'ja'
+        if lang_code != self.app.main_config.get('GeneralSettings', 'Language', fallback='en'): has_changes = True
+        # DebugSettings
+        if str(self.app.show_debug_var.get()) != self.app.main_config.get('DebugSettings', 'ShowDebugSettings', fallback='False'): has_changes = True
+        if self.app.show_debug_var.get():
+            if str(self.app.debug_log_var.get()) != self.app.main_config.get('DebugSettings', 'OutputLog', fallback='False'): has_changes = True
+            if str(self.app.del_temp_var.get()) != self.app.main_config.get('DebugSettings', 'DeleteTemp', fallback='True'): has_changes = True
+            if str(self.app.history_limit_var.get()) != self.app.main_config.get('DebugSettings', 'HistoryLimit', fallback='50'): has_changes = True
+
+        # 変更がない場合
+        if not has_changes:
+            self.app.show_status_message(self.trans.get("msg_no_changes")) # 変更事項がない場合の案内
+            return
+        
+        # 変更が検出された場合のみスナップショットを取る
         self.app.history.snapshot('general')
+
         # GeneralSettings保存
         if 'FarcPack' not in self.app.main_config: self.app.main_config['FarcPack'] = {}
         self.app.main_config['FarcPack']['FarcPackPath'] = normalize_text(self.app.farc_path_var.get())
@@ -187,6 +224,7 @@ class GeneralSettingsTab:
 
         # 設定保存
         self.app.utils.save_config(self.app.main_config, self.app.utils.main_config_path)
+        self.app.show_status_message(self.trans.get("msg_saved_general")) # 保存完了の案内
         
         # 設定反映（可能であれば即時反映）
         self.app.trans.load_language(lang_code)

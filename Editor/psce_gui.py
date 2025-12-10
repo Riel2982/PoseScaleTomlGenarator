@@ -24,10 +24,13 @@ class ConfigEditorApp:
         # Load Configs
         self.main_config = self.utils.load_config(self.utils.main_config_path)
         if self.main_config is None:
-            # Configが読み込まれなかった場合のエラー
-            # 言語設定はconfigに含まれているため、self.transを使用することはできません。標準のmessageboxを使用します。
+            # Configが読み込まれなかった場合のエラー（ロード失敗時の致命的エラーは、アプリ終了を伴うためポップアップのままにしておく）
             try:
-                messagebox.showerror("Error", "Failed to load Config.ini.\nFile might be locked or corrupted.\nApplication will exit to prevent data loss.")
+                # messagebox.showerror("Error", "Failed to load Config.ini.\nFile might be locked or corrupted.\nApplication will exit to prevent data loss.")
+                # 翻訳対応
+                messagebox.showerror(self.trans.get("error"), self.trans.get("err_load_config_fatal"))
+                self.root.destroy()
+                sys.exit()
             except:
                 pass
             sys.exit(1)
@@ -73,8 +76,12 @@ class ConfigEditorApp:
         
         self.history = HistoryManager(self)
         
+        # Undo/Redoボタンの配置
         self.create_toolbar()
         
+        # ステータスバーの作成（メッセージボックスの配置）
+        self.create_statusbar()
+
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(expand=True, fill='both', padx=5, pady=5)
         
@@ -107,15 +114,15 @@ class ConfigEditorApp:
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-
+    # ツールバーの作成
     def create_toolbar(self):
         toolbar = ttk.Frame(self.root, padding=2)
         toolbar.pack(side='top', fill='x')
         
-        self.btn_undo = ttk.Button(toolbar, text=self.trans.get("undo"), command=self.undo, state='disabled')
+        self.btn_undo = ttk.Button(toolbar, text=self.trans.get("undo"), command=self.undo, state='disabled')   # Undoボタン
         self.btn_undo.pack(side='left', padx=2)
         
-        self.btn_redo = ttk.Button(toolbar, text=self.trans.get("redo"), command=self.redo, state='disabled')
+        self.btn_redo = ttk.Button(toolbar, text=self.trans.get("redo"), command=self.redo, state='disabled')   # Redoボタン
         self.btn_redo.pack(side='left', padx=2)
 
         # タブの再読み込みボタン（右端）- 初期状態では非表示（GeneralSettingsTabで制御）
@@ -128,11 +135,82 @@ class ConfigEditorApp:
         else:
             self.refresh_btn.pack_forget()
 
+    def create_statusbar(self):
+        """ステータスバーを作成"""
+        # メインコンテンツと同じパディングを持たせるためのコンテナ（背景色なし、位置調整用）
+
+        # self.statusbar_frame = ttk.Frame(self.root, padding=2)
+        self.statusbar_frame = tk.Frame(self.root, height=25)   # 高さ設定
+        self.statusbar_frame.pack(side='bottom', fill='x', padx=10, pady=(0, 5))    # pady=(0, 5)で下部に少し余白を持たせる
+        self.statusbar_frame.pack_propagate(False) # サイズ固定
+
+        # 区切り線（オプション：より一体感を出すなら削除しても良い）
+        separator = ttk.Separator(self.statusbar_frame, orient='horizontal')
+        separator.pack(fill='x', pady=(0, 2))
+        
+        self.status_var = tk.StringVar()
+        """
+        # フォントを少し小さくして控えめに
+        self.status_label = ttk.Label(self.statusbar_frame, textvariable=self.status_var, anchor='w', font=("", 9))
+        self.status_label.pack(side='left', fill='x', expand=True)
+        """
+        # 白いボックス風のデザイン（メッセージ部分のみ）
+        self.status_label = tk.Label(
+            self.statusbar_frame, 
+            textvariable=self.status_var, 
+            font=("", 9),  # フォントを指定するなら"Meiryo UI"など（Windws規定フォントだとINFOアイコンがただのiになるっぽい）
+            bg='white',             
+            fg='#333333',           
+            relief='solid',         
+            bd=1,                   
+            padx=20, pady=2         
+        )
+        # 初期状態では非表示（packしない）
+
+        
+    def show_status_message(self, message, msg_type="info", duration=3000):     # 特に指定しない時のアイコンはINFO
+        """ステータスバーにメッセージを表示し、一定時間後に消去する
+        
+        Args:
+            message (str): 表示するメッセージ
+            msg_type (str): "info", "success", "warning", "error" のいずれか
+            duration (int): 表示時間（ミリ秒）。Noneの場合は消去しない。
+        """
+        # アイコン定義
+        icons = {
+            "info": "ℹ️ ",
+            "success": "✅ ",
+            "warning": "⚠️ ",
+            "error": "❌ "
+        }
+        icon = icons.get(msg_type, "")
+        
+        full_message = f"{icon} {message}"
+        self.status_var.set(full_message)
+        
+        # 中央に配置して表示
+        self.status_label.pack(expand=True)
+
+        # 既存のタイマーがあればキャンセル（連続してメッセージが来た場合用）
+        if hasattr(self, '_status_timer') and self._status_timer:
+            self.root.after_cancel(self._status_timer)
+            self._status_timer = None
+            
+        if duration:
+            # 指定時間後に非表示にする処理
+            def hide():
+                self.status_label.pack_forget()
+                self.status_var.set("")
+
+            self._status_timer = self.root.after(duration, hide)
+
+    # 現在のタブを取得
     def get_current_context(self):
         """現在のタブを取得"""
         current_tab = self.notebook.select()
         return self.tab_map.get(current_tab)
     
+    # タブ切り替え時にUndo/Redoボタンの状態を更新
     def on_tab_changed(self, event=None):
         """タブ切り替え時にUndo/Redoボタンの状態を更新"""
         self.update_undo_redo_buttons()

@@ -240,11 +240,12 @@ class PoseDataTab:
         
         self.app.pd_scale_var.set(self.app.current_pose_config.get(section, 'Scale', fallback='')) # スケールを取得
 
-    # ポーズデータの追加
+    # PoseScaleデータの追加
     def add_pose_data(self):
         # ファイルが存在しない場合
         if not self.app.current_pose_config:
-            CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("no_file_selected"), self.app.root)
+            # CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("no_file_selected"), self.app.root)
+            self.app.show_status_message(self.trans.get("no_file_selected"), "error")
             return
         self.app.history.snapshot('data')
 
@@ -268,12 +269,19 @@ class PoseDataTab:
         
         # 新しいセクションを保存
         self.app.utils.save_config(self.app.current_pose_config, self.app.current_pose_file_path)
+
+        # 新規追加完了の案内
+        message = self.trans.get("msg_added_data").format(suffix)
+        self.app.show_status_message(message, "info")
+
         self.refresh_pose_data_list()
         self.app.select_listbox_item(self.app.pose_data_listbox, section)
 
-    # ポーズデータの複製
+    # PoseScaleデータの複製
     def duplicate_pose_data(self):
         if not self.app.selected_pose_data_section or not self.app.current_pose_config: return
+
+        # Undo/Redo履歴の記録
         self.app.history.snapshot('data')
         
         # 既存のセクション名を取得
@@ -285,7 +293,10 @@ class PoseDataTab:
         while self.app.current_pose_config.has_section(f"PoseScaleSetting_{suffix}"):
             suffix = f"{base_suffix}_{counter}"
             counter += 1
-            
+
+        # メッセージ表示用に元のサフィックスを取得しておく
+        source_suffix = old_section.replace("PoseScaleSetting_", "", 1)
+
         # 新しいセクションを追加
         new_section = f"PoseScaleSetting_{suffix}"
         self.app.current_pose_config.add_section(new_section)
@@ -294,10 +305,15 @@ class PoseDataTab:
 
         # 新しいセクションを保存    
         self.app.utils.save_config(self.app.current_pose_config, self.app.current_pose_file_path)
+
+        # 複製完了の案内
+        message = self.trans.get("msg_duplicated_data").format(source_suffix)
+        self.app.show_status_message(message, "info")
+
         self.refresh_pose_data_list()
         self.app.select_listbox_item(self.app.pose_data_listbox, new_section)
 
-    # ポーズデータの移動
+    # PoseScaleデータの移動
     def move_pose_data(self, direction):
         selection = self.app.pose_data_listbox.curselection()
         # 選択項目が存在しない場合
@@ -338,14 +354,23 @@ class PoseDataTab:
         self.app.pose_data_listbox.selection_set(idx + direction)
         self.app.pose_data_listbox.event_generate("<<ListboxSelect>>")
 
-    # ポーズデータの削除
+    # PoseScaleデータの削除
     def delete_pose_data(self):
         selection = self.app.pose_data_listbox.curselection()
         # 選択項目が存在しない場合
         if not selection or not self.app.current_pose_config: return
-        section = self.app.pose_data_listbox.get(selection[0])
+        section = self.app.pose_data_listbox.get(selection[0])  # セクション名の取得
+
+        # Undo/Redo履歴に記録
         self.app.history.snapshot('data')
-        
+
+        # Suffixを取得
+        suffix = section.replace("PoseScaleSetting_", "")   # 取得したセクション名から"PoseScaleSetting_"を取り除いて取得
+
+        # 削除完了の案内
+        message = self.trans.get("msg_deleted_data").format(suffix)
+        self.app.show_status_message(message, "info")
+
         idx = selection[0]
         self.app.current_pose_config.remove_section(section)
         self.app.utils.save_config(self.app.current_pose_config, self.app.current_pose_file_path)
@@ -360,7 +385,7 @@ class PoseDataTab:
             self.app.pose_data_listbox.activate(new_idx)
             self.app.pose_data_listbox.event_generate("<<ListboxSelect>>")
 
-    # ポーズデータの保存
+    # PoseScaleデータの保存
     def save_pose_data(self):
         # ファイルが存在しない場合
         if not self.app.current_pose_config:
@@ -458,7 +483,7 @@ class PoseDataTab:
             return
         new_section = f"PoseScaleSetting_{suffix}"
 
-        # Check for changes
+        # Check for changes (変更があるか確認)
         has_changes = False
         if self.app.selected_pose_data_section != new_section:
             has_changes = True
@@ -485,21 +510,30 @@ class PoseDataTab:
 
                 
         if not has_changes:
+            self.app.show_status_message(self.trans.get("msg_no_changes"), "warning")  # 変更事項がない場合の案内
             return
-        
+
         # 変更が検出された場合のみスナップショットを取る
         self.app.history.snapshot('data')
 
-        self.app.current_pose_config.set(new_section, 'Chara', code)
-        self.app.current_pose_config.set(new_section, 'ModuleNameContains', match_val)
-        self.app.current_pose_config.set(new_section, 'ModuleExclude', exclude_val)
+        self.app.current_pose_config.set(new_section, 'Chara', code)   # キャラ枠を設定
+        self.app.current_pose_config.set(new_section, 'ModuleNameContains', match_val)  # モジュール一致を設定
+        self.app.current_pose_config.set(new_section, 'ModuleExclude', exclude_val)     # モジュール除外を設定
         self.app.current_pose_config.set(new_section, 'PoseID', pose_id) # ポーズIDを設定
         self.app.current_pose_config.set(new_section, 'Scale', scale_val) # Scaleを設定
         
-        self.app.utils.save_config(self.app.current_pose_config, self.app.current_pose_file_path) # ポーズデータを保存
-        self.refresh_pose_data_list() # ポーズデータリストを更新
+        # PoseScaleデータを保存
+        self.app.utils.save_config(self.app.current_pose_config, self.app.current_pose_file_path) 
+
+        # 保存完了の案内
+        message = self.trans.get("msg_saved_data").format(suffix)
+        self.app.show_status_message(message, "success")
+
+        self.refresh_pose_data_list() # PoseScaleデータリストを更新
         self.app.select_listbox_item(self.app.pose_data_listbox, new_section) # 新しいセクションを選択
         
+
+
         # 再選択後にUIを更新して訂正を表示（再選択はon_pose_data_selectをトリガーし、configから読み込むので、その後にUIを更新する必要がある）
         # プログラム変更フラグを設定して逆元スタック汚染を防ぐ
         
@@ -535,11 +569,13 @@ class PoseDataTab:
             self.app.pd_scale_entry.programmatic_change = False
             self.app.pd_scale_entry.last_value = scale_val
 
-    # 新しいポーズファイルを作成
+    # 新しいPoseScaleファイルを作成
     def create_new_pose_file(self):
         # PoseScaleDataフォルダにファイルを作成するためのカスタムダイアログ）
         filename = simpledialog.askstring(self.trans.get("create_new_file"), self.trans.get("enter_filename"))
-        if not filename: return
+        if not filename:
+             self.app.show_status_message(self.trans.get("msg_canceled"), "warning") # 未入力などのキャンセル時
+             return
         
         # ファイル名がiniで終わっていない場合は自動的に追加
         if not filename.endswith('.ini'):
@@ -549,7 +585,8 @@ class PoseDataTab:
         
         # ファイルが既に存在する場合はエラー
         if os.path.exists(filepath):
-            CustomMessagebox.show_error(self.trans.get("error"), f"File '{filename}' already exists.", self.app.root)
+            # CustomMessagebox.show_error(self.trans.get("error"), f"File '{filename}' already exists.", self.app.root)
+            self.app.show_status_message(self.trans.get("err_file_exists", filename), "error")
             return
             
         try:
@@ -561,10 +598,13 @@ class PoseDataTab:
             self.refresh_pose_files()
             self.app.pose_file_combo.set(filename)
             self.load_pose_data_file()
+            # 成功メッセージ
+            self.app.show_status_message(self.trans.get("msg_created_file", filename), "success")
         except Exception as e:
-            CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("failed_create", e), self.app.root)
+            # CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("failed_create", e), self.app.root)
+            self.app.show_status_message(self.trans.get("err_failed_create", e), "error")
 
-    # 現在のポーズファイルを複製
+    # 現在のPoseScaleファイルを複製
     def duplicate_current_pose_file(self):
         # 現在のポーズファイルが存在しない場合は何もしない
         if not self.app.current_pose_file_path: return
@@ -576,7 +616,10 @@ class PoseDataTab:
         
         # 新しいファイル名を入力するダイアログを表示
         new_filename = simpledialog.askstring(self.trans.get("duplicate_file"), self.trans.get("enter_filename"), initialvalue=default_new_name)
-        if not new_filename: return
+        # ファイル名が未入力の場合キャンセル
+        if not new_filename: 
+             self.app.show_status_message(self.trans.get("msg_canceled"), "warning")
+             return
         
         # ファイル名がiniで終わっていない場合は自動的に追加
         if not new_filename.endswith('.ini'):
@@ -587,7 +630,8 @@ class PoseDataTab:
         
         # 新しいファイルが既に存在する場合はエラー
         if os.path.exists(new_filepath):
-            CustomMessagebox.show_error(self.trans.get("error"), f"File '{new_filename}' already exists.", self.app.root)
+            # CustomMessagebox.show_error(self.trans.get("error"), f"File '{new_filename}' already exists.", self.app.root)
+            self.app.show_status_message(self.trans.get("err_file_exists", new_filename), "error")
             return
             
         try:
@@ -599,8 +643,11 @@ class PoseDataTab:
             self.refresh_pose_files()
             self.app.pose_file_combo.set(new_filename)
             self.load_pose_data_file()
+            # 成功メッセージ
+            self.app.show_status_message(self.trans.get("msg_duplicated_file", base_name), "success") 
         except Exception as e:
-            CustomMessagebox.show_error(self.trans.get("error"), f"Failed to duplicate file: {e}", self.app.root)
+            # CustomMessagebox.show_error(self.trans.get("error"), f"Failed to duplicate file: {e}", self.app.root)
+            self.app.show_status_message(self.trans.get("err_failed_duplicate", e), "error")
 
     # 現在のポーズファイルをリネーム
     def rename_current_pose_file(self):
@@ -614,7 +661,10 @@ class PoseDataTab:
         # 初期値を渡す
         # simpledialog.askstringは標準のtkinterで初期値をサポート
         new_filename = simpledialog.askstring(self.trans.get("rename_file"), self.trans.get("enter_filename"), initialvalue=base_name)
-        if not new_filename: return
+        # ファイル名が未入力の場合キャンセル
+        if not new_filename: 
+             self.app.show_status_message(self.trans.get("msg_canceled"), "warning") # 未入力などのキャンセル時
+             return
         
         # ファイル名がiniで終わっていない場合は自動的に追加
         if not new_filename.endswith('.ini'):
@@ -625,7 +675,8 @@ class PoseDataTab:
         
         # 新しいファイルが既に存在する場合はエラー
         if os.path.exists(new_filepath):
-            CustomMessagebox.show_error(self.trans.get("error"), f"File '{new_filename}' already exists.", self.app.root)
+            # CustomMessagebox.show_error(self.trans.get("error"), f"File '{new_filename}' already exists.", self.app.root)
+            self.app.show_status_message(self.trans.get("err_file_exists", new_filename), "error")
             return
             
         try:
@@ -638,8 +689,12 @@ class PoseDataTab:
             self.app.pose_file_combo.set(new_filename)
             # Reload data to ensure UI is consistent（UIを一致させるためにデータを再読み込み）
             self.load_pose_data_file()
+            # 成功メッセージ
+            self.app.show_status_message(self.trans.get("msg_renamed_file", new_filename), "success")
         except Exception as e:
-            CustomMessagebox.show_error(self.trans.get("error"), f"Failed to rename file: {e}", self.app.root)
+            # CustomMessagebox.show_error(self.trans.get("error"), f"Failed to rename file: {e}", self.app.root)
+            self.app.show_status_message(self.trans.get("err_failed_rename", e), "error")
+
 
     # 現在のポーズファイルを削除
     def delete_current_pose_file(self):
@@ -648,13 +703,20 @@ class PoseDataTab:
         # 削除時に確認はしない（Undoで対応）
         if True:
             try:
-                # Snapshot before deletion for undo
+                # Undo/Redo履歴の記録
                 self.app.history.snapshot('data')
                 
                 os.remove(self.app.current_pose_file_path)
                 self.app.current_pose_file_path = None
                 self.app.current_pose_config = None
+
+                # 削除完了の案内
+                message = self.trans.get("msg_deleted_file").format(filename)
+                self.app.show_status_message(message, "info")
+
                 self.refresh_pose_files()
                 # ファイルが残っていない場合、フィールドをクリアする
             except Exception as e:
-                CustomMessagebox.show_error(self.trans.get("error"), f"Failed to delete file: {e}", self.app.root)
+                # CustomMessagebox.show_error(self.trans.get("error"), f"Failed to delete file: {e}", self.app.root)
+                self.app.show_status_message(self.trans.get("err_failed_delete", e), "error")
+                

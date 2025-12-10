@@ -203,8 +203,11 @@ class PoseIDMapTab:
                 
                 # Image is saved with filename-based naming convention, no config update needed
                 self.load_map_image(pose_id)
+            # 画像コピー失敗時 (select_map_image)
             except Exception as e:
-                messagebox.showerror(self.trans.get("error"), self.trans.get("copy_image_fail", path))
+                # messagebox.showerror(self.trans.get("error"), self.trans.get("copy_image_fail", path))
+                self.app.show_status_message(self.trans.get("copy_image_fail", path), "error")
+
 
     # 画像を削除
     def delete_map_image(self):
@@ -212,35 +215,26 @@ class PoseIDMapTab:
         
         image_path = self.app.utils.find_image_for_pose(self.app.selected_map_key)  # 画像のパス
         if not image_path:
-            messagebox.showinfo(self.trans.get("no_image"), self.trans.get("no_image"))
-            return
-
-        # 確認なしで削除するため無効化中
-        # filename = os.path.basename(image_path)
-        # if not messagebox.askyesno(self.trans.get("confirm"), self.trans.get("delete_image_confirm", filename)):
-        #     return
-
-    # 画像を削除
-    def delete_map_image(self):
-        if not self.app.selected_map_key: return
-        
-        image_path = self.app.utils.find_image_for_pose(self.app.selected_map_key)  # 画像のパス
-        if not image_path:
-            messagebox.showinfo(self.trans.get("no_image"), self.trans.get("no_image"))
+            # messagebox.showinfo(self.trans.get("no_image"), self.trans.get("no_image"))
+            self.app.show_status_message(self.trans.get("no_image"), "warning") # またはerror
             return
 
         filename = os.path.basename(image_path)
+        # 確認なしで削除するため無効化中
         # if not messagebox.askyesno(self.trans.get("confirm"), self.trans.get("delete_image_confirm", filename)):
         #     return
 
         # Tentative delete (will be executed on Save)
+        # 削除完了の案内
+        self.app.show_status_message(self.trans.get("msg_deleted_image"), "info")
+
         self.pending_trash_image = image_path
-        
-        # Clear preview
+       
+        # 画像プレビューをクリア
         self.app.map_image_label.configure(image='')
         self.app.map_image_label.image = None
 
-    # マップを追加
+    # 新規PoseIDMapを追加
     def add_map_entry(self):
         self.app.history.snapshot('map')  # ヒストリを保存
         if not self.app.pose_id_map.has_section('PoseIDs'):
@@ -255,16 +249,23 @@ class PoseIDMapTab:
         # 新しいIDを設定    
         self.app.pose_id_map.set('PoseIDs', str(next_id), 'New Pose')
         self.app.utils.save_config(self.app.pose_id_map, self.app.utils.pose_id_map_path)
+
+        # 新規追加完了の案内
+        self.app.show_status_message(self.trans.get("msg_added_map", next_id), "success")
+
         self.refresh_pose_id_map_list()
         
         # 新しい項目を選択
         idx = self.app.map_listbox.size() - 1
-        self.app.map_listbox.selection_set(idx)
+        self.app.map_listbox.selection_clear(0, 'end')  # 一度すべての選択状態を解除
+        self.app.map_listbox.selection_set(idx) # 作成したものに選択を切り替える
         self.app.map_listbox.event_generate("<<ListboxSelect>>")
 
-    # マップを複製
+    # 既存のPoseIDMapを複製
     def duplicate_map_entry(self):
         if not self.app.selected_map_key: return
+        source_id = self.app.selected_map_key # 複製元IDの取得
+
         self.app.history.snapshot('map')  # ヒストリを保存
         
         # Find next available ID
@@ -278,13 +279,18 @@ class PoseIDMapTab:
         
         self.app.pose_id_map.set('PoseIDs', str(next_id), new_name)
         self.app.utils.save_config(self.app.pose_id_map, self.app.utils.pose_id_map_path)
+
+        # 複製完了の案内
+        self.app.show_status_message(self.trans.get("msg_duplicated_map", source_id), "info")
+
         self.refresh_pose_id_map_list()
         
-        # Select new item
+        # 新しいアイテムを選択
         items = self.app.map_listbox.get(0, 'end')
         for i, item in enumerate(items):
             if item.startswith(f"{next_id}:"):
-                self.app.map_listbox.selection_set(i)
+                self.app.map_listbox.selection_clear(0, 'end')  # すべての選択を解除
+                self.app.map_listbox.selection_set(i)   # 複製物を選択状態に
                 self.app.map_listbox.event_generate("<<ListboxSelect>>")
                 break
 
@@ -331,8 +337,13 @@ class PoseIDMapTab:
         # if not messagebox.askyesno(self.trans.get("confirm"), self.trans.get("delete_confirm", self.app.selected_map_key)):
         #     return
         
+        # Undo/Redo履歴に記録
         self.app.history.snapshot('map')
         
+        # 削除完了の案内
+        pose_id = self.app.selected_map_key # 削除対象のID
+        self.app.show_status_message(self.trans.get("msg_deleted_map", pose_id), "success")
+
         # Get current selection index before deletion
         selection = self.app.map_listbox.curselection()
         if not selection: return
@@ -374,7 +385,7 @@ class PoseIDMapTab:
         pose_id = normalize_text(self.app.map_id_var.get())
         name = normalize_text(self.app.map_name_var.get())
 
-        # Check for changes
+        # Check for changes (変更があるか確認)
         has_changes = False
         if self.app.selected_map_key != pose_id:
             has_changes = True
@@ -386,8 +397,10 @@ class PoseIDMapTab:
                 has_changes = True
                 
         if not has_changes:
+            self.app.show_status_message(self.trans.get("msg_no_changes"), "warning")  # 変更事項がない場合の案内
             return
 
+        # 変更が検出された場合のみスナップショットを取る
         self.app.history.snapshot('map')
 
         # IDを変更する場合、重複するIDをチェックする
@@ -433,7 +446,11 @@ class PoseIDMapTab:
 
             # configを保存
             self.app.utils.save_config(self.app.pose_id_map, self.app.utils.pose_id_map_path)
-            self.refresh_pose_id_map_list()
+
+            # 保存完了の案内
+            self.app.show_status_message(self.trans.get("msg_saved_map", pose_id), "success")
+        
+            self.refresh_pose_id_map_list()    # 画面更新
             
             # 選択を再設定
             items = self.app.map_listbox.get(0, 'end')

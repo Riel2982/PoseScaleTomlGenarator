@@ -123,3 +123,4 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
 
 ### 既知の不具合
 - 画像プレビューの削除動作はRedoで再現できない（それ以外の操作はRedoで再現できる）［Editor］
+- 'Pose ID Map'タブで新規追加・複製時に画面更新が正しく行われない（beta4にて修正予定）［Editor］
