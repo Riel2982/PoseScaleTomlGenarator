@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import configparser
 import os
-from psce_util import CustomMessagebox, normalize_comma_separated_string
+from psce_util import CustomMessagebox, normalize_text, normalize_comma_separated_string
 
 # TomlProfileタブUIクラス
 class ProfileTab:
@@ -125,6 +125,9 @@ class ProfileTab:
 
     # プロファイルリストの更新
     def refresh_profile_list(self, select_first=False):
+        # 現在の選択を保存
+        last_selection = self.app.selected_profile_section
+
         self.app.profile_listbox.delete(0, 'end')
         if not self.app.profile_config: return
         
@@ -132,8 +135,22 @@ class ProfileTab:
             if section.startswith('TomlProfile_'):
                 self.app.profile_listbox.insert('end', section)
         
-        # Select first item only on initial load
-        if select_first and self.app.profile_listbox.size() > 0:
+        # 選択を復元
+        restored = False
+        if last_selection:
+            items = self.app.profile_listbox.get(0, 'end')
+            try:
+                idx = items.index(last_selection)
+                self.app.profile_listbox.selection_set(idx)
+                self.app.profile_listbox.activate(idx)
+                # Ensure UI is updated
+                self.on_profile_select(None)
+                restored = True
+            except ValueError:
+                pass # Previous selection not found
+
+        # Select first item only on initial load if restoration failed
+        if select_first and not restored and self.app.profile_listbox.size() > 0:
             self.app.profile_listbox.selection_set(0)
             # Directly call handler to ensure UI is updated
             self.on_profile_select(None)
@@ -250,7 +267,7 @@ class ProfileTab:
 
     # TomlProfileの保存
     def save_profile(self):
-        suffix = self.app.prof_section_suffix_var.get()
+        suffix = normalize_text(self.app.prof_section_suffix_var.get())
         if not suffix:
             CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("req_suffix"), self.app.root)
             return
@@ -286,10 +303,11 @@ class ProfileTab:
             self.app.profile_config.add_section(new_section)
         
         # Get values from UI（UI から値を取得してカンマ正規化を適用）
+        # normalize_comma_separated_string already does stripping/normalization
         match_val = normalize_comma_separated_string(self.app.prof_match_var.get())
         exclude_val = normalize_comma_separated_string(self.app.prof_exclude_var.get())
         config_file = self.app.prof_config_var.get()
-        pose_file_name = self.app.prof_pose_file_var.get()
+        pose_file_name = normalize_text(self.app.prof_pose_file_var.get())
         
         # 半角英数と特定の記号のみを許可する
         if not all(c.isascii() and (c.isalnum() or c in ('_', '-', '.')) for c in pose_file_name):
